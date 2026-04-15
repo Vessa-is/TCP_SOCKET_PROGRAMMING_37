@@ -1,6 +1,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
+#include <string>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -27,25 +28,52 @@ int main() {
 
     cout << "Connected to server\n";
 
-    char buffer[1024];
+    string username;
+    cout << "Enter username: ";
+    getline(cin, username);
+
+    send(clientSocket, username.c_str(), username.size(), 0);
+
+    char buffer[4096];
+
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+    if (bytesReceived > 0) {
+        string response(buffer, bytesReceived);
+        cout << response << endl;
+    }
+
+    cout << "\nAvailable commands:\n";
+    cout << "/msg <text>\n";
+    cout << "/list\n";
+    cout << "/read <file>\n";
+    cout << "/search <keyword>\n";
+    cout << "/info <file>\n";
+    cout << "/download <file>\n";
+    cout << "/upload <file>|<content> (admin only)\n";
+    cout << "/delete <file> (admin only)\n";
+    cout << "/whoami\n\n";
 
     while (true) {
-        string msg;
+        string command;
 
-        cout << "Enter message: ";
-        getline(cin, msg);
+        cout << "> ";
+        getline(cin, command);
 
-        send(clientSocket, msg.c_str(), msg.size(), 0);
+        if (command.empty()) continue;
+
+        send(clientSocket, command.c_str(), command.size(), 0);
+
+        ZeroMemory(buffer, sizeof(buffer));
 
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
 
         if (bytesReceived <= 0) {
-            cout << "Server disconnected\n";
+            cout << "Disconnected from server\n";
             break;
         }
 
         string response(buffer, bytesReceived);
-        cout << "Server: " << response << endl;
+        cout << response << endl;
     }
 
     closesocket(clientSocket);
