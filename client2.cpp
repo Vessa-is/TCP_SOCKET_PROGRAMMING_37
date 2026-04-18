@@ -1,81 +1,49 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
-#include <string>
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
 
-#define PORT 54000
+
+const char* SERVER_IP = "192.168.50.144";  
+int PORT = 54000;
 
 int main() {
     WSADATA wsa;
-    WSAStartup(MAKEWORD(2, 2), &wsa);
+    SOCKET sock;
+    sockaddr_in serverAddr{};
 
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    WSAStartup(MAKEWORD(2,2), &wsa);
 
-    sockaddr_in serverAddr;
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(PORT);
+    inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
-    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
-
-    if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+    
+    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         cout << "Connection failed\n";
         return 1;
     }
 
-    cout << "Connected to server\n";
+    cout << "Connected to server!\n";
 
-    string username;
-    cout << "Enter username: ";
-    getline(cin, username);
+  
+    string msg = "Hello from client!";
+    send(sock, msg.c_str(), msg.size(), 0);
 
-    send(clientSocket, username.c_str(), username.size(), 0);
+    
+    char buffer[1024];
+    int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
 
-    char buffer[4096];
-
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
     if (bytesReceived > 0) {
-        string response(buffer, bytesReceived);
-        cout << response << endl;
+        buffer[bytesReceived] = '\0';
+        cout << "Server replied: " << buffer << endl;
     }
 
-    cout << "\nAvailable commands:\n";
-    cout << "/msg <text>\n";
-    cout << "/list\n";
-    cout << "/read <file>\n";
-    cout << "/search <keyword>\n";
-    cout << "/info <file>\n";
-    cout << "/download <file>\n";
-    cout << "/upload <file>|<content> (admin only)\n";
-    cout << "/delete <file> (admin only)\n";
-    cout << "/whoami\n\n";
-
-    while (true) {
-        string command;
-
-        cout << "> ";
-        getline(cin, command);
-
-        if (command.empty()) continue;
-
-        send(clientSocket, command.c_str(), command.size(), 0);
-
-        ZeroMemory(buffer, sizeof(buffer));
-
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-
-        if (bytesReceived <= 0) {
-            cout << "Disconnected from server\n";
-            break;
-        }
-
-        string response(buffer, bytesReceived);
-        cout << response << endl;
-    }
-
-    closesocket(clientSocket);
+    closesocket(sock);
     WSACleanup();
 }
