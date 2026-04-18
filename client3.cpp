@@ -32,18 +32,28 @@ int main() {
     cout << "Connected to server!\n";
 
   
-    string msg = "Hello from client!";
+    while (true) {
+    string msg;
+    cout << "Enter message: ";
+    getline(cin, msg);
+
+    if (msg == "exit") break;
+
     send(sock, msg.c_str(), msg.size(), 0);
 
-    
     char buffer[1024];
-    int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
+    int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
-    if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';
-        cout << "Server replied: " << buffer << endl;
+    if (bytesReceived <= 0) {
+        cout << "Disconnected from server\n";
+        break;
     }
 
+    buffer[bytesReceived] = '\0';
+    cout << "Server: " << buffer << endl;
+}
     closesocket(sock);
     WSACleanup();
+    return 0;
+
 }
