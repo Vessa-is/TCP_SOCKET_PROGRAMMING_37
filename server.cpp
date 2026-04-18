@@ -20,9 +20,9 @@ namespace fs = std::filesystem;
 
 #define TCP_PORT 54000
 #define HTTP_PORT 8080
-#define MAX_CLIENTS 4
+#define MAX_CLIENTS 5
 #define BUFFER_SIZE 4096
-#define TIMEOUT_SECONDS 60
+#define TIMEOUT_SECONDS 120
 
 const string STORAGE_DIR = "server_storage";
 const string LOG_FILE = "server_messages.log";
