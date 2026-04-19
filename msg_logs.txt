@@ -14,3 +14,18 @@
 [2026-04-19 21:39:36] 172.20.10.10: hej
 [2026-04-19 21:39:38] 172.20.10.10: STATUS
 [2026-04-19 21:39:50] 172.20.10.2: MJAU
+[2026-04-19 21:46:57] 172.20.10.10: cd "c:\Users\admin\OneDrive\Documents\GitHub\TCP_SOCKET_PROGRAMMING_37\" ; if ($?) { g++ client1.cpp -o client1 } ; if ($?) { .\client1 }
+[2026-04-19 21:46:59] 172.20.10.10: cd "c:\Users\admin\OneDrive\Documents\GitHub\TCP_SOCKET_PROGRAMMING_37\" ; if ($?) { g++ client1.cpp -o client1 } ; if ($?) { .\client1 }
+[2026-04-19 21:47:04] 172.20.10.10: cd "c:\Users\admin\OneDrive\Documents\GitHub\TCP_SOCKET_PROGRAMMING_37\" ; if ($?) { g++ client1.cpp -o client1 } ; if ($?) { .\client1 }
+[2026-04-19 21:47:30] 172.20.10.10: STATUS
+[2026-04-19 22:21:09] 172.20.10.10: STATUS
+[2026-04-19 22:25:57] 172.20.10.2: mjau
+[2026-04-19 22:25:59] 172.20.10.2: STATUS
+[2026-04-19 22:26:09] 172.20.10.10: kj
+[2026-04-19 22:26:13] 172.20.10.10: STATUS
+[2026-04-19 22:34:44] 172.20.10.2: STATUS
+[2026-04-19 22:35:01] 172.20.10.10: hello
+[2026-04-19 22:35:04] 172.20.10.10: STATUS
+[2026-04-19 23:34:09] 172.20.10.2: HELLO
+[2026-04-19 23:34:50] 172.20.10.2: HELLO
+[2026-04-19 23:35:43] 172.20.10.2: /list
