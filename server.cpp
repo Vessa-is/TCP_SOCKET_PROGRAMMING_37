@@ -32,8 +32,22 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
         buffer[bytesReceived] = '\0';
         cout << "[" << clientIP << "]: " << buffer << endl;
 
-        const char* reply = "Hello from server!";
-        send(clientSocket, reply, strlen(reply), 0);
+        string request = buffer;
+        string reply;
+
+        if (request == "STATUS") {
+            reply = "Serveri eshte aktiv dhe duke funksionuar.";
+        }
+        else if (request == "BYE") {
+            reply = "Lidhja po mbyllet.";
+            send(clientSocket, reply.c_str(), reply.size(), 0);
+            break; 
+        }
+        else {
+            reply = "Kerkese e panjohur.";
+        }
+
+send(clientSocket, reply.c_str(), reply.size(), 0);
     }
 
     closesocket(clientSocket);
