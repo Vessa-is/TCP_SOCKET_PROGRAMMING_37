@@ -7,7 +7,7 @@
 using namespace std;
 
 
-const char* SERVER_IP = "10.180.78.254";  
+const char* SERVER_IP = "172.20.10.3";  
 int PORT = 54000;
 
 int main() {
