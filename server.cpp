@@ -5,6 +5,10 @@
 #include <atomic>
 #include <vector>
 #include <mutex>
+#include <fstream>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -16,7 +20,15 @@ const int MAX_CLIENTS = 3;
 atomic<int> activeClients(0);
 vector<string> messageLog;
 mutex logMutex;
+string getCurrentTime() {
+    time_t now = time(0);
+    tm localTime;
+    localtime_s(&localTime, &now);
 
+    stringstream ss;
+    ss << put_time(&localTime, "%Y-%m-%d %H:%M:%S");
+    return ss.str();
+}
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     char clientIP[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
@@ -35,35 +47,43 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
 
         buffer[bytesReceived] = '\0';
         cout << "[" << clientIP << "]: " << buffer << endl;
-        {
-            lock_guard<mutex> lock(logMutex);
-            messageLog.push_back(string(clientIP) + ": " + buffer);
-        }
-
+    {
+        lock_guard<mutex> lock(logMutex);
+        string logEntry = "[" + getCurrentTime() + "] " + clientIP + ": " + buffer;
+        messageLog.push_back(logEntry);
+        ofstream logFile("msg_logs.txt", ios::app);
+        logFile << logEntry << endl;
+    }
         string request = buffer;
         string reply;
 
-        if (request == "STATUS") {
-            reply = "Serveri eshte aktiv.\nMesazhet:\n";
-            lock_guard<mutex> lock(logMutex);
-            for (const auto& msg : messageLog) {
-                reply += msg + "\n";
-            }
-        }
-        else if (request == "BYE") {
-            reply = "Lidhja po mbyllet.\nMesazhet:\n";
-            lock_guard<mutex> lock(logMutex);
-            for (const auto& msg : messageLog) {
-                reply += msg + "\n";
-            }
-        }
-        else {
-            reply = "Kerkese e panjohur.\nMesazhet:\n";
-            lock_guard<mutex> lock(logMutex);
-            for (const auto& msg : messageLog) {
-                reply += msg + "\n";
-            }
-        }
+if (request == "STATUS") {
+    reply = "Serveri eshte aktiv.\nMesazhet:\n";
+
+    lock_guard<mutex> lock(logMutex);
+    for (const auto& msg : messageLog) {
+        reply += msg + "\n";
+    }
+}
+else if (request == "BYE") {
+    {
+        lock_guard<mutex> lock(logMutex);
+
+        string logEntry = "[" + getCurrentTime() + "] " + clientIP + ": DISCONNECTED";
+
+        messageLog.push_back(logEntry);
+
+        ofstream logFile("msg_logs.txt", ios::app);
+        logFile << logEntry << endl;
+    }
+
+    reply = "Lidhja po mbyllet.";
+    send(clientSocket, reply.c_str(), reply.size(), 0);
+    break;
+}
+else {
+    reply = "Kerkese e panjohur.";
+}
 
 send(clientSocket, reply.c_str(), reply.size(), 0);
     }
