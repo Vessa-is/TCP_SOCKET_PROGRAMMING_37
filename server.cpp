@@ -9,6 +9,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -21,6 +22,9 @@ const int TIMEOUT_MS = 10000;
 atomic<int> activeClients(0);
 vector<string> messageLog;
 mutex logMutex;
+vector<string> clientIPs;
+atomic<int> totalMessages(0);
+
 string getCurrentTime() {
     time_t now = time(0);
     tm localTime;
@@ -38,6 +42,10 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
 
     cout << "Client connected: " << clientIP << endl;
+    {
+    lock_guard<mutex> lock(logMutex);
+    clientIPs.push_back(clientIP);
+}
 
     char buffer[1024];
 
@@ -60,6 +68,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
         }
 
         buffer[bytesReceived] = '\0';
+        totalMessages++;
         cout << "[" << clientIP << "]: " << buffer << endl;
     {
         lock_guard<mutex> lock(logMutex);
@@ -97,8 +106,78 @@ else {
 send(clientSocket, reply.c_str(), reply.size(), 0);
     }
 
+    {
+    lock_guard<mutex> lock(logMutex);
+    clientIPs.erase(remove(clientIPs.begin(), clientIPs.end(), clientIP), clientIPs.end());
+}
     closesocket(clientSocket);
     activeClients--;  
+}
+void httpServer() {
+    SOCKET httpSocket;
+    sockaddr_in serverAddr{}, clientAddr{};
+    int clientSize = sizeof(clientAddr);
+
+    httpSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(8080);
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+    bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    listen(httpSocket, SOMAXCONN);
+
+    cout << "HTTP server running on port 8080\n";
+
+    while (true) {
+        SOCKET client = accept(httpSocket, (sockaddr*)&clientAddr, &clientSize);
+
+        char buffer[1024];
+        int bytes = recv(client, buffer, sizeof(buffer) - 1, 0);
+
+        if (bytes > 0) {
+            buffer[bytes] = '\0';
+            string request(buffer);
+
+            if (request.find("GET /stats") != string::npos) {
+
+                stringstream json;
+
+                lock_guard<mutex> lock(logMutex);
+
+                json << "{\n";
+                json << "\"active_clients\": " << activeClients << ",\n";
+
+                json << "\"client_ips\": [";
+                for (size_t i = 0; i < clientIPs.size(); i++) {
+                    json << "\"" << clientIPs[i] << "\"";
+                    if (i < clientIPs.size() - 1) json << ",";
+                }
+                json << "],\n";
+
+                json << "\"total_messages\": " << totalMessages << ",\n";
+
+                json << "\"messages\": [";
+                for (size_t i = 0; i < messageLog.size(); i++) {
+                    json << "\"" << messageLog[i] << "\"";
+                    if (i < messageLog.size() - 1) json << ",";
+                }
+                json << "]\n";
+
+                json << "}";
+
+                string response =
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Connection: close\r\n\r\n" +
+                    json.str();
+
+                send(client, response.c_str(), response.size(), 0);
+            }
+        }
+
+        closesocket(client);
+    }
 }
 
 int main() {
@@ -119,6 +198,8 @@ int main() {
     listen(serverSocket, SOMAXCONN);
 
     cout << "Server running on port " << PORT << endl;
+    thread httpThread(httpServer);
+httpThread.detach();
 
     while (true) {
         SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientSize);
