@@ -3,6 +3,8 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
+#include <vector>
+#include <mutex>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -12,6 +14,8 @@ const int PORT = 54000;
 const int MAX_CLIENTS = 3;
 
 atomic<int> activeClients(0);
+vector<string> messageLog;
+mutex logMutex;
 
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     char clientIP[INET_ADDRSTRLEN];
@@ -31,20 +35,34 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
 
         buffer[bytesReceived] = '\0';
         cout << "[" << clientIP << "]: " << buffer << endl;
+        {
+            lock_guard<mutex> lock(logMutex);
+            messageLog.push_back(string(clientIP) + ": " + buffer);
+        }
 
         string request = buffer;
         string reply;
 
         if (request == "STATUS") {
-            reply = "Serveri eshte aktiv dhe duke funksionuar.";
+            reply = "Serveri eshte aktiv.\nMesazhet:\n";
+            lock_guard<mutex> lock(logMutex);
+            for (const auto& msg : messageLog) {
+                reply += msg + "\n";
+            }
         }
         else if (request == "BYE") {
-            reply = "Lidhja po mbyllet.";
-            send(clientSocket, reply.c_str(), reply.size(), 0);
-            break; 
+            reply = "Lidhja po mbyllet.\nMesazhet:\n";
+            lock_guard<mutex> lock(logMutex);
+            for (const auto& msg : messageLog) {
+                reply += msg + "\n";
+            }
         }
         else {
-            reply = "Kerkese e panjohur.";
+            reply = "Kerkese e panjohur.\nMesazhet:\n";
+            lock_guard<mutex> lock(logMutex);
+            for (const auto& msg : messageLog) {
+                reply += msg + "\n";
+            }
         }
 
 send(clientSocket, reply.c_str(), reply.size(), 0);
