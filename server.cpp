@@ -16,6 +16,7 @@ using namespace std;
 
 const int PORT = 54000;
 const int MAX_CLIENTS = 3;
+const int TIMEOUT_MS = 10000; 
 
 atomic<int> activeClients(0);
 vector<string> messageLog;
@@ -30,6 +31,9 @@ string getCurrentTime() {
     return ss.str();
 }
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
+    setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO,
+        (const char*)&TIMEOUT_MS, sizeof(TIMEOUT_MS));
+
     char clientIP[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
 
@@ -40,6 +44,16 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     while (true) {
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
+        if (bytesReceived == SOCKET_ERROR) {
+            int err = WSAGetLastError();
+
+        if (err == WSAETIMEDOUT) {
+            cout << "Client timed out (no messages): " << clientIP << endl;
+        } else {
+            cout << "Recv error from " << clientIP << endl;
+        }
+        break;
+}
         if (bytesReceived <= 0) {
             cout << "Client disconnected: " << clientIP << endl;
             break;
