@@ -58,12 +58,7 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
         string reply;
 
 if (request == "STATUS") {
-    reply = "Serveri eshte aktiv.\nMesazhet:\n";
-
-    lock_guard<mutex> lock(logMutex);
-    for (const auto& msg : messageLog) {
-        reply += msg + "\n";
-    }
+    reply = "Serveri eshte aktiv dhe duke funksionuar.";
 }
 else if (request == "BYE") {
     {
