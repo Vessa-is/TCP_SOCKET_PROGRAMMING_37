@@ -121,7 +121,7 @@ void httpServer() {
     httpSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8080);
+    serverAddr.sin_port = htons(8081);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
