@@ -119,20 +119,40 @@ void httpServer() {
     int clientSize = sizeof(clientAddr);
 
     httpSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (httpSocket == INVALID_SOCKET) {
+        cout << "HTTP socket creation failed: " << WSAGetLastError() << endl;
+        return;
+    }
+
+    int opt = 1;
+    setsockopt(httpSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8081);
+    serverAddr.sin_port = htons(8080);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    listen(httpSocket, SOMAXCONN);
+    if (bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        cout << "HTTP bind failed: " << WSAGetLastError() << endl;
+        closesocket(httpSocket);
+        return;
+    }
 
-    cout << "HTTP server running on port 8080\n";
+    if (listen(httpSocket, SOMAXCONN) == SOCKET_ERROR) {
+        cout << "HTTP listen failed: " << WSAGetLastError() << endl;
+        closesocket(httpSocket);
+        return;
+    }
+
+    cout << "HTTP server running on port 8080" << endl;
 
     while (true) {
         SOCKET client = accept(httpSocket, (sockaddr*)&clientAddr, &clientSize);
+        if (client == INVALID_SOCKET) {
+            cout << "HTTP accept failed: " << WSAGetLastError() << endl;
+            continue;
+        }
 
-        char buffer[1024];
+        char buffer[2048];
         int bytes = recv(client, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes > 0) {
@@ -140,24 +160,23 @@ void httpServer() {
             string request(buffer);
 
             if (request.find("GET /stats") != string::npos) {
-
                 stringstream json;
 
                 lock_guard<mutex> lock(logMutex);
 
                 json << "{\n";
-                json << "\"active_clients\": " << activeClients << ",\n";
+                json << "  \"active_clients\": " << activeClients << ",\n";
 
-                json << "\"client_ips\": [";
+                json << "  \"client_ips\": [";
                 for (size_t i = 0; i < clientIPs.size(); i++) {
                     json << "\"" << clientIPs[i] << "\"";
                     if (i < clientIPs.size() - 1) json << ",";
                 }
                 json << "],\n";
 
-                json << "\"total_messages\": " << totalMessages << ",\n";
+                json << "  \"total_messages\": " << totalMessages << ",\n";
 
-                json << "\"messages\": [";
+                json << "  \"messages\": [";
                 for (size_t i = 0; i < messageLog.size(); i++) {
                     json << "\"" << messageLog[i] << "\"";
                     if (i < messageLog.size() - 1) json << ",";
@@ -166,11 +185,23 @@ void httpServer() {
 
                 json << "}";
 
+                string body = json.str();
                 string response =
                     "HTTP/1.1 200 OK\r\n"
                     "Content-Type: application/json\r\n"
+                    "Content-Length: " + to_string(body.size()) + "\r\n"
                     "Connection: close\r\n\r\n" +
-                    json.str();
+                    body;
+
+                send(client, response.c_str(), response.size(), 0);
+            } else {
+                string body = "{ \"error\": \"Use GET /stats\" }";
+                string response =
+                    "HTTP/1.1 404 Not Found\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Content-Length: " + to_string(body.size()) + "\r\n"
+                    "Connection: close\r\n\r\n" +
+                    body;
 
                 send(client, response.c_str(), response.size(), 0);
             }
@@ -179,7 +210,6 @@ void httpServer() {
         closesocket(client);
     }
 }
-
 int main() {
     WSADATA wsa;
     SOCKET serverSocket;
