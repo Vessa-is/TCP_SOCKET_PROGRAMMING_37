@@ -22,7 +22,7 @@ const int PORT = 54000;
 const int MAX_CLIENTS = 3;
 const int TIMEOUT_MS = 10000; 
 
-atomic<int> activeClients(0);
+atomic<int> activeClients(3);
 vector<string> messageLog;
 mutex logMutex;
 vector<string> clientIPs;
