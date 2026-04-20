@@ -30,9 +30,15 @@ int main() {
     }
 
     cout << "Connected to server!\n";
+    char buffer[1024];
+int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
-  
-    while (true) {
+if (bytesReceived > 0) {
+    buffer[bytesReceived] = '\0';
+    cout << "Server: " << buffer << endl;
+}
+
+  while (true) {
     string msg;
     cout << "Enter message: ";
     getline(cin, msg);
@@ -41,8 +47,7 @@ int main() {
 
     send(sock, msg.c_str(), msg.size(), 0);
 
-    char buffer[1024];
-    int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
     if (bytesReceived <= 0) {
         cout << "Disconnected from server\n";
