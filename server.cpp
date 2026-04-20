@@ -10,9 +10,6 @@
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
-#include <filesystem>
-#include <fstream>
-namespace fs = std::filesystem;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -27,7 +24,6 @@ vector<string> messageLog;
 mutex logMutex;
 vector<string> clientIPs;
 atomic<int> totalMessages(0);
-atomic<bool> adminAssigned(false);
 
 string getCurrentTime() {
     time_t now = time(0);
@@ -38,7 +34,7 @@ string getCurrentTime() {
     ss << put_time(&localTime, "%Y-%m-%d %H:%M:%S");
     return ss.str();
 }
-void handleClient(SOCKET clientSocket, sockaddr_in clientAddr, bool isAdmin) {
+void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO,
         (const char*)&TIMEOUT_MS, sizeof(TIMEOUT_MS));
 
@@ -46,10 +42,6 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr, bool isAdmin) {
     inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
 
     cout << "Client connected: " << clientIP << endl;
-    if (isAdmin)
-    cout << "→ This client is ADMIN\n";
-else
-    cout << "→ This client is READ-ONLY\n";
     {
     lock_guard<mutex> lock(logMutex);
     clientIPs.push_back(clientIP);
@@ -72,13 +64,6 @@ else
 }
         if (bytesReceived <= 0) {
             cout << "Client disconnected: " << clientIP << endl;
-            if (isAdmin) {
-            cout << "\n=== ADMIN CONNECTED ===\n";
-            cout << "Commands:\n";
-            cout << "/list\n/read <file>\n/upload <file>\n/download <file>\n/delete <file>\n/search <keyword>\n/info <file>\nSTATUS\nBYE\n\n";
-        } else {
-            cout << "\n=== USER CONNECTED ===\n";
-        }
             break;
         }
 
@@ -93,158 +78,31 @@ else
         logFile << logEntry << endl;
     }
         string request = buffer;
-string reply;
+        string reply;
 
-// trim input
-request.erase(request.find_last_not_of(" \n\r\t") + 1);
-
-// ---------------- ALWAYS ALLOWED ----------------
 if (request == "STATUS") {
     reply = "Serveri eshte aktiv dhe duke funksionuar.";
 }
 else if (request == "BYE") {
+    {
+        lock_guard<mutex> lock(logMutex);
+
+        string logEntry = "[" + getCurrentTime() + "] " + clientIP + ": DISCONNECTED";
+
+        messageLog.push_back(logEntry);
+
+        ofstream logFile("msg_logs.txt", ios::app);
+        logFile << logEntry << endl;
+    }
+
     reply = "Lidhja po mbyllet.";
     send(clientSocket, reply.c_str(), reply.size(), 0);
     break;
 }
-
-// ---------------- ADMIN ONLY ----------------
 else {
-
-    if (!isAdmin) {
-        reply = "Access denied. Admin only.";
-        send(clientSocket, reply.c_str(), reply.size(), 0);
-        continue;
-    }
-
-    // -------- LIST --------
-    if (request == "/list") {
-        string result = "Files:\n";
-        for (const auto& entry : fs::directory_iterator("server_storage")) {
-            result += entry.path().filename().string() + "\n";
-        }
-        reply = result;
-    }
-
-    // -------- READ --------
-    else if (request.rfind("/read ", 0) == 0) {
-        string filename = request.substr(6);
-        string path = "server_storage/" + filename;
-
-        ifstream file(path);
-        if (!file) {
-            reply = "File not found.";
-        } else {
-            string line, content;
-            while (getline(file, line)) content += line + "\n";
-            reply = content;
-        }
-    }
-
-    // -------- DELETE --------
-    else if (request.rfind("/delete ", 0) == 0) {
-        string filename = request.substr(8);
-        string path = "server_storage/" + filename;
-
-        if (remove(path.c_str()) == 0)
-            reply = "File deleted.";
-        else
-            reply = "Delete failed.";
-    }
-
-    // -------- SEARCH --------
-    else if (request.rfind("/search ", 0) == 0) {
-        string keyword = request.substr(8);
-        string result = "Matching files:\n";
-
-        for (const auto& entry : fs::directory_iterator("server_storage")) {
-            string name = entry.path().filename().string();
-            if (name.find(keyword) != string::npos)
-                result += name + "\n";
-        }
-
-        reply = result;
-    }
-
-    // -------- INFO --------
-    else if (request.rfind("/info ", 0) == 0) {
-        string filename = request.substr(6);
-        string path = "server_storage/" + filename;
-
-        if (!fs::exists(path)) {
-            reply = "File not found.";
-        } else {
-            auto size = fs::file_size(path);
-            reply = "Size: " + to_string(size) + " bytes";
-        }
-    }
-
-    // -------- BINARY UPLOAD --------
-    else if (request.rfind("/upload ", 0) == 0) {
-
-        string filename = request.substr(8);
-        string path = "server_storage/" + filename;
-
-        ofstream file(path, ios::binary);
-
-        size_t fileSize;
-        recv(clientSocket, (char*)&fileSize, sizeof(fileSize), 0);
-
-        char buffer[1024];
-        size_t received = 0;
-
-        while (received < fileSize) {
-            int bytes = recv(clientSocket, buffer, sizeof(buffer), 0);
-            if (bytes <= 0) break;
-
-            file.write(buffer, bytes);
-            received += bytes;
-        }
-
-        file.close();
-
-        reply = "File uploaded.";
-        send(clientSocket, reply.c_str(), reply.size(), 0);
-        continue;
-    }
-
-    // -------- BINARY DOWNLOAD --------
-    else if (request.rfind("/download ", 0) == 0) {
-
-        string filename = request.substr(10);
-        string path = "server_storage/" + filename;
-
-        ifstream file(path, ios::binary);
-        if (!file) {
-            reply = "File not found.";
-            send(clientSocket, reply.c_str(), reply.size(), 0);
-        } else {
-
-            file.seekg(0, ios::end);
-            size_t size = file.tellg();
-            file.seekg(0);
-
-            send(clientSocket, (char*)&size, sizeof(size), 0);
-
-            char buffer[1024];
-            while (!file.eof()) {
-                file.read(buffer, sizeof(buffer));
-                send(clientSocket, buffer, file.gcount(), 0);
-            }
-
-            file.close();
-        }
-
-        continue;
-    }
-
-    else {
-        reply = "Unknown command.";
-    }
+    reply = "Kerkese e panjohur.";
 }
 
-send(clientSocket, reply.c_str(), reply.size(), 0);
-send(clientSocket, reply.c_str(), reply.size(), 0);
 send(clientSocket, reply.c_str(), reply.size(), 0);
     }
 
@@ -261,20 +119,40 @@ void httpServer() {
     int clientSize = sizeof(clientAddr);
 
     httpSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (httpSocket == INVALID_SOCKET) {
+        cout << "HTTP socket creation failed: " << WSAGetLastError() << endl;
+        return;
+    }
+
+    int opt = 1;
+    setsockopt(httpSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(8080);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    listen(httpSocket, SOMAXCONN);
+    if (bind(httpSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        cout << "HTTP bind failed: " << WSAGetLastError() << endl;
+        closesocket(httpSocket);
+        return;
+    }
 
-    cout << "HTTP server running on port 8080\n";
+    if (listen(httpSocket, SOMAXCONN) == SOCKET_ERROR) {
+        cout << "HTTP listen failed: " << WSAGetLastError() << endl;
+        closesocket(httpSocket);
+        return;
+    }
+
+    cout << "HTTP server running on port 8080" << endl;
 
     while (true) {
         SOCKET client = accept(httpSocket, (sockaddr*)&clientAddr, &clientSize);
+        if (client == INVALID_SOCKET) {
+            cout << "HTTP accept failed: " << WSAGetLastError() << endl;
+            continue;
+        }
 
-        char buffer[1024];
+        char buffer[2048];
         int bytes = recv(client, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes > 0) {
@@ -282,24 +160,23 @@ void httpServer() {
             string request(buffer);
 
             if (request.find("GET /stats") != string::npos) {
-
                 stringstream json;
 
                 lock_guard<mutex> lock(logMutex);
 
                 json << "{\n";
-                json << "\"active_clients\": " << activeClients << ",\n";
+                json << "  \"active_clients\": " << activeClients << ",\n";
 
-                json << "\"client_ips\": [";
+                json << "  \"client_ips\": [";
                 for (size_t i = 0; i < clientIPs.size(); i++) {
                     json << "\"" << clientIPs[i] << "\"";
                     if (i < clientIPs.size() - 1) json << ",";
                 }
                 json << "],\n";
 
-                json << "\"total_messages\": " << totalMessages << ",\n";
+                json << "  \"total_messages\": " << totalMessages << ",\n";
 
-                json << "\"messages\": [";
+                json << "  \"messages\": [";
                 for (size_t i = 0; i < messageLog.size(); i++) {
                     json << "\"" << messageLog[i] << "\"";
                     if (i < messageLog.size() - 1) json << ",";
@@ -308,11 +185,23 @@ void httpServer() {
 
                 json << "}";
 
+                string body = json.str();
                 string response =
                     "HTTP/1.1 200 OK\r\n"
                     "Content-Type: application/json\r\n"
+                    "Content-Length: " + to_string(body.size()) + "\r\n"
                     "Connection: close\r\n\r\n" +
-                    json.str();
+                    body;
+
+                send(client, response.c_str(), response.size(), 0);
+            } else {
+                string body = "{ \"error\": \"Use GET /stats\" }";
+                string response =
+                    "HTTP/1.1 404 Not Found\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Content-Length: " + to_string(body.size()) + "\r\n"
+                    "Connection: close\r\n\r\n" +
+                    body;
 
                 send(client, response.c_str(), response.size(), 0);
             }
@@ -321,7 +210,6 @@ void httpServer() {
         closesocket(client);
     }
 }
-
 int main() {
     WSADATA wsa;
     SOCKET serverSocket;
@@ -365,14 +253,7 @@ httpThread.detach();
  
         activeClients++;
 
-        bool isAdmin = false;
-
-    if (!adminAssigned) {
-        isAdmin = true;
-        adminAssigned = true;
-    }
-
-thread t(handleClient, clientSocket, clientAddr, isAdmin);
+        thread t(handleClient, clientSocket, clientAddr);
         t.detach();
     }
 
