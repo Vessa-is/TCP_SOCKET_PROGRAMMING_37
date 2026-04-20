@@ -116,6 +116,8 @@ if (admin) {
         logFile << logEntry << endl;
     }
         string request = buffer;
+        request.erase(remove(request.begin(), request.end(), '\r'), request.end());
+request.erase(remove(request.begin(), request.end(), '\n'), request.end());
         string reply;
 
 if (request == "STATUS") {
