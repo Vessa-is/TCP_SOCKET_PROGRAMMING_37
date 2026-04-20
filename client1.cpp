@@ -10,6 +10,23 @@ using namespace std;
 const char* SERVER_IP = "172.20.10.3";  
 int PORT = 54000;
 
+string recvLine(SOCKET sock) {
+    string result;
+    char ch;
+
+    while (true) {
+        int bytes = recv(sock, &ch, 1, 0);
+
+        if (bytes <= 0) return "";
+
+        if (ch == '\n') break;
+
+        result += ch;
+    }
+
+    return result;
+}
+
 int main() {
     WSADATA wsa;
     SOCKET sock;
@@ -48,12 +65,14 @@ if (bytesReceived > 0) {
 
     send(sock, msg.c_str(), msg.size(), 0);
 
-    bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
+   string response = recvLine(sock);
 
-    if (bytesReceived <= 0) {
-        cout << "Disconnected from server\n";
-        break;
-    }
+if (response.empty()) {
+    cout << "Disconnected from server\n";
+    break;
+}
+
+cout << "Server: " << response << endl;
 
     buffer[bytesReceived] = '\0';
     cout << "Server: " << buffer << endl;
