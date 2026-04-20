@@ -83,6 +83,7 @@ if (admin) {
 } else {
     string roleMsg = "You are USER\n";
     send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
+    Sleep(50);
 }
 
     char buffer[1024];
