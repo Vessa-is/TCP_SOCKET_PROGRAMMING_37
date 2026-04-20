@@ -180,7 +180,8 @@ else if (action == "/upload") {
     int fileSize;
     ss >> fileSize;
 
-    ofstream file(arg, ios::binary);
+    string path = "server_storage/" + arg;
+ofstream file(path, ios::binary);
     if (!file) {
         string msg = "ERROR: Cannot create file\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
@@ -210,8 +211,9 @@ else if (action == "/download") {
         continue;
     }
 
-    ifstream file(arg, ios::binary);
-    if (!file) {
+        string path = "server_storage/" + arg;
+ifstream file(path, ios::binary);
+        if (!file) {
         string msg = "ERROR: File not found\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
         continue;
@@ -237,6 +239,8 @@ else if (action == "/delete") {
         continue;
     }
 
+    string path = "server_storage/" + arg;
+ifstream file(path, ios::binary);
     remove(arg.c_str());
     string msg = "Deleted\n";
     send(clientSocket, msg.c_str(), msg.size(), 0);
@@ -251,7 +255,8 @@ else if (action == "/search") {
     string cmd = "dir | findstr " + arg + " > search.txt";
     system(cmd.c_str());
 
-    ifstream file("search.txt");
+    string path = "server_storage/" + arg;
+ifstream file(path, ios::binary);
     string result((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
 
     send(clientSocket, result.c_str(), result.size(), 0);
@@ -275,7 +280,8 @@ else if (action == "/info") {
 
 // ================= USER + ADMIN =================
 else if (action == "/read") {
-    ifstream file(arg);
+    string path = "server_storage/" + arg;
+ifstream file(path, ios::binary);
     if (!file) {
         string msg = "File not found\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
