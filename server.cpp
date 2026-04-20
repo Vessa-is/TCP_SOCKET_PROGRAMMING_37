@@ -20,7 +20,7 @@ using namespace std;
 
 const int PORT = 54000;
 const int MAX_CLIENTS = 3;
-const int TIMEOUT_MS = 1000000; 
+const int TIMEOUT_MS = 10000; 
 
 atomic<int> activeClients(0);
 vector<string> messageLog;
@@ -46,9 +46,27 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr, bool isAdmin) {
     inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
 
     cout << "Client connected: " << clientIP << endl;
+
+    string menu;
+
+    if (isAdmin) {
+        menu =
+            "\n=== ADMIN MENU ===\n"
+            "/list\n/read <file>\n/upload <file>\n/download <file>\n"
+            "/delete <file>\n/search <keyword>\n/info <file>\nSTATUS\nBYE\n\n";
+    } else {
+        menu =
+            "\n=== USER MENU ===\n"
+            "STATUS\nBYE\n\n";
+    }
+
+   
+    send(clientSocket, menu.c_str(), menu.size(), 0);
+
+    
     if (isAdmin)
     cout << "→ This client is ADMIN\n";
-else
+    else
     cout << "→ This client is READ-ONLY\n";
     {
     lock_guard<mutex> lock(logMutex);
