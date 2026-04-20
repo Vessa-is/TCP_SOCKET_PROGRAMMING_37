@@ -80,10 +80,32 @@ if (admin) {
     cout << "Client " << clientIP << " is ADMIN" << endl;
     string roleMsg = "You are ADMIN\n";
     send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
+        Sleep(50);
+       string adminMenu =
+        "\n=== ADMIN MENU ===\n"
+        "/list               - List files in server directory\n"
+        "/read <filename>    - Read file content\n"
+        "/upload <filename>  - Upload file to server\n"
+        "/download <filename>- Download file from server\n"
+        "/delete <filename>  - Delete file from server\n"
+        "/search <keyword>   - Search files by keyword\n"
+        "/info <filename>    - Show file info (size, created, modified)\n"
+        "===================\n";
+
+    send(clientSocket, adminMenu.c_str(), adminMenu.size(), 0);
 } else {
     string roleMsg = "You are USER\n";
     send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
     Sleep(50);
+   
+    string userMenu =
+        "\n=== USER MENU ===\n"
+        "STATUS      - Check server status\n"
+        "READ        - Read available files\n"
+        "BYE         - Disconnect manually\n"
+        "================\n";
+
+    send(clientSocket, userMenu.c_str(), userMenu.size(), 0);
 }
 
     char buffer[1024];
