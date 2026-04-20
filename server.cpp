@@ -10,6 +10,9 @@
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include <string>
+#include <sstream>     
+#include <windows.h> 
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -233,7 +236,7 @@ else if (action == "/info") {
     }
 
     WIN32_FILE_ATTRIBUTE_DATA info;
-    if (GetFileAttributesEx(arg.c_str(), GetFileExInfoStandard, &info)) {
+    if (GetFileAttributesExA(arg.c_str(), GetFileExInfoStandard, &info)) {
         string msg = "File info OK\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
     } else {
@@ -277,6 +280,7 @@ else {
 releaseAdmin(clientId);
     closesocket(clientSocket);
     activeClients--;  
+}
 }
 void httpServer() {
     SOCKET httpSocket;
