@@ -7,7 +7,7 @@
 using namespace std;
 
 
-const char* SERVER_IP = "172.20.10.3";  
+const char* SERVER_IP = "172.20.10.3";
 int PORT = 54000;
 
 string recvLine(SOCKET sock) {
@@ -40,7 +40,7 @@ int main() {
     serverAddr.sin_port = htons(PORT);
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
-    
+
     if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         cout << "Connection failed\n";
         return 1;
@@ -56,7 +56,7 @@ if (bytesReceived > 0) {
 }
 
   
-  while (true) {
+    while (true) {
     string msg;
     cout << "Enter message: ";
     getline(cin, msg);
