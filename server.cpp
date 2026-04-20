@@ -20,7 +20,7 @@ using namespace std;
 
 const int PORT = 54000;
 const int MAX_CLIENTS = 3;
-const int TIMEOUT_MS = 10000; 
+const int TIMEOUT_MS = 60000; 
 
 atomic<int> activeClients(0);
 vector<string> messageLog;
@@ -162,13 +162,21 @@ if (action == "/list") {
         continue;
     }
 
-    system("dir > temp.txt");
-    ifstream file("temp.txt");
+    WIN32_FIND_DATAA findData;
+HANDLE hFind = FindFirstFileA("server_storage/*", &findData);
 
-    string line, output;
-    while (getline(file, line)) output += line + "\n";
+string output = "";
 
-    send(clientSocket, output.c_str(), output.size(), 0);
+if (hFind != INVALID_HANDLE_VALUE) {
+    do {
+        output += findData.cFileName;
+        output += "\n";
+    } while (FindNextFileA(hFind, &findData));
+
+    FindClose(hFind);
+}
+
+send(clientSocket, output.c_str(), output.size(), 0);
 }
 else if (action == "/upload") {
     if (!adminUser) {
@@ -181,21 +189,28 @@ else if (action == "/upload") {
     ss >> fileSize;
 
     string path = "server_storage/" + arg;
-ofstream file(path, ios::binary);
+    ofstream file(path, ios::binary);
+
     if (!file) {
         string msg = "ERROR: Cannot create file\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
         continue;
     }
 
-    char buffer[4096];
+    char fileBuffer[4096];
     int receivedTotal = 0;
 
     while (receivedTotal < fileSize) {
-        int chunk = recv(clientSocket, buffer, sizeof(buffer), 0);
-        if (chunk <= 0) break;
+        int chunk = recv(clientSocket, fileBuffer, sizeof(fileBuffer), 0);
 
-        file.write(buffer, chunk);
+        if (chunk == SOCKET_ERROR) {
+            if (WSAGetLastError() == WSAETIMEDOUT) continue;
+            break;
+        }
+
+        if (chunk == 0) break;
+
+        file.write(fileBuffer, chunk);
         receivedTotal += chunk;
     }
 
@@ -211,23 +226,26 @@ else if (action == "/download") {
         continue;
     }
 
-        string path = "server_storage/" + arg;
-ifstream file(path, ios::binary);
-        if (!file) {
+    string path = "server_storage/" + arg;
+    ifstream file(path, ios::binary);
+
+    if (!file) {
         string msg = "ERROR: File not found\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
         continue;
     }
+
     file.seekg(0, ios::end);
     int fileSize = file.tellg();
-
     file.seekg(0, ios::beg);
+
     string header = "FILE " + arg + " " + to_string(fileSize) + "\n";
     send(clientSocket, header.c_str(), header.size(), 0);
 
-    char buffer[4096];
-    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
-        send(clientSocket, buffer, file.gcount(), 0);
+    char fileBuffer[4096];
+
+    while (file.read(fileBuffer, sizeof(fileBuffer)) || file.gcount() > 0) {
+        send(clientSocket, fileBuffer, file.gcount(), 0);
     }
 
     file.close();
