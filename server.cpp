@@ -24,6 +24,9 @@ vector<string> messageLog;
 mutex logMutex;
 vector<string> clientIPs;
 atomic<int> totalMessages(0);
+atomic<int> nextClientId(1);
+mutex adminMutex;
+int adminClientId = -1;
 
 string getCurrentTime() {
     time_t now = time(0);
@@ -33,6 +36,30 @@ string getCurrentTime() {
     stringstream ss;
     ss << put_time(&localTime, "%Y-%m-%d %H:%M:%S");
     return ss.str();
+}
+bool assignAdminIfNeeded(int clientId) {
+    lock_guard<mutex> lock(adminMutex);
+
+    if (adminClientId == -1) {
+        adminClientId = clientId;
+        return true;
+    }
+
+    return false;
+}
+
+bool isAdmin(int clientId) {
+    lock_guard<mutex> lock(adminMutex);
+    return adminClientId == clientId;
+}
+
+void releaseAdmin(int clientId) {
+    lock_guard<mutex> lock(adminMutex);
+
+    if (adminClientId == clientId) {
+        adminClientId = -1;
+        cout << "Admin disconnected, role released" << endl;
+    }
 }
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO,
@@ -45,6 +72,17 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
     {
     lock_guard<mutex> lock(logMutex);
     clientIPs.push_back(clientIP);
+}
+int clientId = nextClientId++;
+bool admin = assignAdminIfNeeded(clientId);
+
+if (admin) {
+    cout << "Client " << clientIP << " is ADMIN" << endl;
+    string roleMsg = "You are ADMIN";
+    send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
+} else {
+    string roleMsg = "You are USER";
+    send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
 }
 
     char buffer[1024];
@@ -110,6 +148,7 @@ send(clientSocket, reply.c_str(), reply.size(), 0);
     lock_guard<mutex> lock(logMutex);
     clientIPs.erase(remove(clientIPs.begin(), clientIPs.end(), clientIP), clientIPs.end());
 }
+releaseAdmin(clientId);
     closesocket(clientSocket);
     activeClients--;  
 }
