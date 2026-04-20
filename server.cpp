@@ -78,10 +78,10 @@ bool admin = assignAdminIfNeeded(clientId);
 
 if (admin) {
     cout << "Client " << clientIP << " is ADMIN" << endl;
-    string roleMsg = "You are ADMIN";
+    string roleMsg = "You are ADMIN\n";
     send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
 } else {
-    string roleMsg = "You are USER";
+    string roleMsg = "You are USER\n";
     send(clientSocket, roleMsg.c_str(), roleMsg.size(), 0);
 }
 
@@ -117,7 +117,7 @@ if (admin) {
     }
         string request = buffer;
         request.erase(remove(request.begin(), request.end(), '\r'), request.end());
-request.erase(remove(request.begin(), request.end(), '\n'), request.end());
+        request.erase(remove(request.begin(), request.end(), '\n'), request.end());
         string reply;
 
 if (request == "STATUS") {
