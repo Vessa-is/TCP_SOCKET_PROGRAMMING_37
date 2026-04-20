@@ -1,27 +1,30 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
+#include <thread>
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
 
 
-const char* SERVER_IP = "172.20.10.3";
+const char* SERVER_IP = "172.20.10.3";  
 int PORT = 54000;
 
-string recvLine(SOCKET sock) {
-    string result;
-    char ch;
+void receiveMessages(SOCKET sock) {
+    char buffer[4096];
 
-       while (true) {
-        int bytes = recv(sock, &ch, 1, 0);
-        if (bytes <= 0) return result.empty() ? "" : result;
-        result += ch;
-        if (ch == '\n' || result.size() > 2000) break;  // safety
+    while (true) {
+        int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
+
+        if (bytesReceived <= 0) {
+            cout << "\nDisconnected from server\n";
+            break;
+        }
+
+        buffer[bytesReceived] = '\0';
+        cout << buffer;   // print directly
     }
-
-    return result;
 }
 
 int main() {
@@ -37,23 +40,18 @@ int main() {
     serverAddr.sin_port = htons(PORT);
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
-
+    
     if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         cout << "Connection failed\n";
         return 1;
     }
 
     cout << "Connected to server!\n";
-    char buffer[1024];
-int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
-
-if (bytesReceived > 0) {
-    buffer[bytesReceived] = '\0';
-    cout << "Server: " << buffer << endl;
-}
+thread recvThread(receiveMessages, sock);
+recvThread.detach();
 
   
-    while (true) {
+  while (true) {
     string msg;
     cout << "Enter message: ";
     getline(cin, msg);
@@ -62,18 +60,7 @@ if (bytesReceived > 0) {
 
     send(sock, msg.c_str(), msg.size(), 0);
 
-   string response = recvLine(sock);
-
-if (response.empty()) {
-    cout << "Disconnected from server\n";
-    break;
-}
-
-cout << "Server: " << response << endl;
-
-    buffer[bytesReceived] = '\0';
-    cout << "Server: " << buffer << endl;
-}
+  }
 
     closesocket(sock);
     WSACleanup();
