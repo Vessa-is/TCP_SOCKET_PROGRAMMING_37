@@ -143,31 +143,132 @@ if (admin) {
         request.erase(remove(request.begin(), request.end(), '\n'), request.end());
         string reply;
 
-if (request == "STATUS") {
-    reply = "Serveri eshte aktiv dhe duke funksionuar.";
-}
-else if (request == "BYE") {
-    {
-        lock_guard<mutex> lock(logMutex);
 
-        string logEntry = "[" + getCurrentTime() + "] " + clientIP + ": DISCONNECTED";
+    stringstream ss(request);
+string action, arg;
+ss >> action;
+ss >> arg;
 
-        messageLog.push_back(logEntry);
+bool adminUser = isAdmin(clientId);
 
-        ofstream logFile("msg_logs.txt", ios::app);
-        logFile << logEntry << endl;
+// ================= ADMIN COMMANDS =================
+if (action == "/list") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
     }
 
-    reply = "Lidhja po mbyllet.";
-    send(clientSocket, reply.c_str(), reply.size(), 0);
+    system("dir > temp.txt");
+    ifstream file("temp.txt");
+
+    string line, output;
+    while (getline(file, line)) output += line + "\n";
+
+    send(clientSocket, output.c_str(), output.size(), 0);
+}
+else if (action == "/upload") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    ofstream file(arg);
+    int len = recv(clientSocket, buffer, sizeof(buffer), 0);
+    file.write(buffer, len);
+    file.close();
+
+    string msg = "Upload complete\n";
+    send(clientSocket, msg.c_str(), msg.size(), 0);
+}
+else if (action == "/download") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    ifstream file(arg, ios::binary);
+    if (!file) {
+        string msg = "File not found\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+    send(clientSocket, content.c_str(), content.size(), 0);
+}
+else if (action == "/delete") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    remove(arg.c_str());
+    string msg = "Deleted\n";
+    send(clientSocket, msg.c_str(), msg.size(), 0);
+}
+else if (action == "/search") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    string cmd = "dir | findstr " + arg + " > search.txt";
+    system(cmd.c_str());
+
+    ifstream file("search.txt");
+    string result((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+
+    send(clientSocket, result.c_str(), result.size(), 0);
+}
+else if (action == "/info") {
+    if (!adminUser) {
+        string msg = "ERROR: Admin only\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    WIN32_FILE_ATTRIBUTE_DATA info;
+    if (GetFileAttributesEx(arg.c_str(), GetFileExInfoStandard, &info)) {
+        string msg = "File info OK\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+    } else {
+        string msg = "File not found\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+    }
+}
+
+// ================= USER + ADMIN =================
+else if (action == "/read") {
+    ifstream file(arg);
+    if (!file) {
+        string msg = "File not found\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    string line, content;
+    while (getline(file, line)) content += line + "\n";
+
+    send(clientSocket, content.c_str(), content.size(), 0);
+}
+else if (action == "STATUS") {
+    string msg = "Serveri eshte aktiv dhe duke funksionuar.\n";
+    send(clientSocket, msg.c_str(), msg.size(), 0);
+}
+else if (action == "BYE") {
+    string msg = "Lidhja po mbyllet.\n";
+    send(clientSocket, msg.c_str(), msg.size(), 0);
     break;
 }
 else {
-    reply = "Kerkese e panjohur.";
+    string msg = "Kerkese e panjohur.\n";
+    send(clientSocket, msg.c_str(), msg.size(), 0);
 }
-
-send(clientSocket, reply.c_str(), reply.size(), 0);
-    }
 
     {
     lock_guard<mutex> lock(logMutex);
