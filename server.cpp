@@ -22,7 +22,7 @@ const int PORT = 54000;
 const int MAX_CLIENTS = 3;
 const int TIMEOUT_MS = 10000; 
 
-atomic<int> activeClients(3);
+atomic<int> activeClients(0);
 vector<string> messageLog;
 mutex logMutex;
 vector<string> clientIPs;
@@ -240,10 +240,14 @@ else if (action == "/delete") {
     }
 
     string path = "server_storage/" + arg;
-ifstream file(path, ios::binary);
-    remove(arg.c_str());
-    string msg = "Deleted\n";
-    send(clientSocket, msg.c_str(), msg.size(), 0);
+
+    if (remove(path.c_str()) == 0) {
+        string msg = "File deleted\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+    } else {
+        string msg = "ERROR: Cannot delete file\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+    }
 }
 else if (action == "/search") {
     if (!adminUser) {
@@ -252,12 +256,27 @@ else if (action == "/search") {
         continue;
     }
 
-    string cmd = "dir | findstr " + arg + " > search.txt";
-    system(cmd.c_str());
+    WIN32_FIND_DATAA findData;
+    HANDLE hFind = FindFirstFileA("server_storage/*", &findData);
 
-    string path = "server_storage/" + arg;
-ifstream file(path, ios::binary);
-    string result((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+    string result = "";
+
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            string filename = findData.cFileName;
+
+            if (filename.find(arg) != string::npos) {
+                result += filename + "\n";
+            }
+
+        } while (FindNextFileA(hFind, &findData));
+
+        FindClose(hFind);
+    }
+
+    if (result.empty()) {
+        result = "No matching files\n";
+    }
 
     send(clientSocket, result.c_str(), result.size(), 0);
 }
@@ -268,9 +287,32 @@ else if (action == "/info") {
         continue;
     }
 
+    string path = "server_storage/" + arg;
+
     WIN32_FILE_ATTRIBUTE_DATA info;
-    if (GetFileAttributesExA(arg.c_str(), GetFileExInfoStandard, &info)) {
-        string msg = "File info OK\n";
+    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &info)) {
+
+        LARGE_INTEGER size;
+        size.HighPart = info.nFileSizeHigh;
+        size.LowPart = info.nFileSizeLow;
+
+        SYSTEMTIME stCreate, stModify;
+        FileTimeToSystemTime(&info.ftCreationTime, &stCreate);
+        FileTimeToSystemTime(&info.ftLastWriteTime, &stModify);
+
+        stringstream ss;
+        ss << "File: " << arg << "\n";
+        ss << "Size: " << size.QuadPart << " bytes\n";
+
+        ss << "Created: "
+           << stCreate.wDay << "/" << stCreate.wMonth << "/" << stCreate.wYear
+           << " " << stCreate.wHour << ":" << stCreate.wMinute << "\n";
+
+        ss << "Modified: "
+           << stModify.wDay << "/" << stModify.wMonth << "/" << stModify.wYear
+           << " " << stModify.wHour << ":" << stModify.wMinute << "\n";
+
+        string msg = ss.str();
         send(clientSocket, msg.c_str(), msg.size(), 0);
     } else {
         string msg = "File not found\n";
