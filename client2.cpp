@@ -14,14 +14,11 @@ string recvLine(SOCKET sock) {
     string result;
     char ch;
 
-    while (true) {
+       while (true) {
         int bytes = recv(sock, &ch, 1, 0);
-
-        if (bytes <= 0) return "";
-
-        if (ch == '\n') break;
-
+        if (bytes <= 0) return result.empty() ? "" : result;
         result += ch;
+        if (ch == '\n' || result.size() > 2000) break;  // safety
     }
 
     return result;
