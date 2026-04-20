@@ -301,14 +301,15 @@ else {
     send(clientSocket, msg.c_str(), msg.size(), 0);
 }
 
-    {
+     
+}
+{
     lock_guard<mutex> lock(logMutex);
     clientIPs.erase(remove(clientIPs.begin(), clientIPs.end(), clientIP), clientIPs.end());
 }
 releaseAdmin(clientId);
     closesocket(clientSocket);
-    activeClients--;  
-}
+    activeClients--; 
 }
 void httpServer() {
     SOCKET httpSocket;
