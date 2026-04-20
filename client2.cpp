@@ -7,8 +7,25 @@
 using namespace std;
 
 
-const char* SERVER_IP = "172.20.10.3";  
+const char* SERVER_IP = "172.20.10.3";
 int PORT = 54000;
+
+string recvLine(SOCKET sock) {
+    string result;
+    char ch;
+
+    while (true) {
+        int bytes = recv(sock, &ch, 1, 0);
+
+        if (bytes <= 0) return "";
+
+        if (ch == '\n') break;
+
+        result += ch;
+    }
+
+    return result;
+}
 
 int main() {
     WSADATA wsa;
@@ -23,16 +40,23 @@ int main() {
     serverAddr.sin_port = htons(PORT);
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
-    
+
     if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         cout << "Connection failed\n";
         return 1;
     }
 
     cout << "Connected to server!\n";
+    char buffer[1024];
+int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
-  
-    while (true) {
+if (bytesReceived > 0) {
+    buffer[bytesReceived] = '\0';
+    cout << "Server: " << buffer << endl;
+}
+
+
+  while (true) {
     string msg;
     cout << "Enter message: ";
     getline(cin, msg);
@@ -41,13 +65,14 @@ int main() {
 
     send(sock, msg.c_str(), msg.size(), 0);
 
-    char buffer[1024];
-    int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
+   string response = recvLine(sock);
 
-    if (bytesReceived <= 0) {
-        cout << "Disconnected from server\n";
-        break;
-    }
+if (response.empty()) {
+    cout << "Disconnected from server\n";
+    break;
+}
+
+cout << "Server: " << response << endl;
 
     buffer[bytesReceived] = '\0';
     cout << "Server: " << buffer << endl;
