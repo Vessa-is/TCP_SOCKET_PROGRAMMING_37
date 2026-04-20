@@ -116,17 +116,18 @@ if (admin) {
     while (true) {
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-        if (bytesReceived == SOCKET_ERROR) {
-            int err = WSAGetLastError();
+if (bytesReceived == SOCKET_ERROR) {
+    int err = WSAGetLastError();
 
-        if (err == WSAETIMEDOUT) {
-            cout << "Client timed out (no messages): " << clientIP << endl;
-        } else {
-            cout << "Recv error from " << clientIP << endl;
-        }
-        break;
+    if (err == WSAETIMEDOUT) {
+        // ⏳ timeout = just wait, DO NOT disconnect
+        continue;
+    } else {
+        cout << "Recv error from " << clientIP << endl;
+        break; // only real errors disconnect
+    }
 }
-        if (bytesReceived <= 0) {
+        if (bytesReceived == 0) {
             cout << "Client disconnected: " << clientIP << endl;
             break;
         }
