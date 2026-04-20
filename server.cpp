@@ -177,12 +177,30 @@ else if (action == "/upload") {
         continue;
     }
 
-    ofstream file(arg);
-    int len = recv(clientSocket, buffer, sizeof(buffer), 0);
-    file.write(buffer, len);
+    int fileSize;
+    ss >> fileSize;
+
+    ofstream file(arg, ios::binary);
+    if (!file) {
+        string msg = "ERROR: Cannot create file\n";
+        send(clientSocket, msg.c_str(), msg.size(), 0);
+        continue;
+    }
+
+    char buffer[4096];
+    int receivedTotal = 0;
+
+    while (receivedTotal < fileSize) {
+        int chunk = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (chunk <= 0) break;
+
+        file.write(buffer, chunk);
+        receivedTotal += chunk;
+    }
+
     file.close();
 
-    string msg = "Upload complete\n";
+    string msg = "UPLOAD OK\n";
     send(clientSocket, msg.c_str(), msg.size(), 0);
 }
 else if (action == "/download") {
@@ -194,13 +212,23 @@ else if (action == "/download") {
 
     ifstream file(arg, ios::binary);
     if (!file) {
-        string msg = "File not found\n";
+        string msg = "ERROR: File not found\n";
         send(clientSocket, msg.c_str(), msg.size(), 0);
         continue;
     }
+    file.seekg(0, ios::end);
+    int fileSize = file.tellg();
 
-    string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    send(clientSocket, content.c_str(), content.size(), 0);
+    file.seekg(0, ios::beg);
+    string header = "FILE " + arg + " " + to_string(fileSize) + "\n";
+    send(clientSocket, header.c_str(), header.size(), 0);
+
+    char buffer[4096];
+    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
+        send(clientSocket, buffer, file.gcount(), 0);
+    }
+
+    file.close();
 }
 else if (action == "/delete") {
     if (!adminUser) {
