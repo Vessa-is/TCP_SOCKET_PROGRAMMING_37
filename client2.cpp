@@ -55,8 +55,8 @@ if (bytesReceived > 0) {
     cout << "Server: " << buffer << endl;
 }
 
-
-  while (true) {
+  
+    while (true) {
     string msg;
     cout << "Enter message: ";
     getline(cin, msg);
